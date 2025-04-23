@@ -1,48 +1,75 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>3D Drive Sim</title>
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <meta charset="utf-8" />
+  <title>ドライブシミュレーター</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
     html, body, #cesiumContainer {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-    #moveBtn {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 999;
+      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
     }
   </style>
 </head>
 <body>
-  <button id="moveBtn">進む</button>
   <div id="cesiumContainer"></div>
-
   <script>
+    // Cesium Ion アクセストークン
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0MWE4NGZhOC1lYmYxLTRjOWUtYmQ0OS1lNDU2ZGJiNDZmNDgiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDUzODUwMjR9.6YTPLgl2ucNdvl8lo7g9HqLNwhAUSxLGOsbZz92ZZT0';
 
-    const viewer = new Cesium.Viewer("cesiumContainer", {
-      terrain: Cesium.Terrain.fromWorldTerrain()
+    // ビューア作成
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      terrainProvider: Cesium.createWorldTerrain(),
+      shouldAnimate: true,
+      baseLayerPicker: false,
+      timeline: false,
+      animation: false,
+      infoBox: false,
+      sceneModePicker: false
     });
 
-    viewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(-74.006, 40.7128, 1000), // ニューヨーク上空
+    // 地表にカメラを設定
+    const startPosition = Cesium.Cartesian3.fromDegrees(-73.9857, 40.7484, 50); // NYC上空
+    const direction = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(1, 0, 0), new Cesium.Cartesian3()); // 東向き
+    const up = Cesium.Cartesian3.UNIT_Z;
+
+    viewer.scene.camera.setView({
+      destination: startPosition,
       orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-15),
-        roll: 0
+        direction: direction,
+        up: up
       }
     });
 
-    document.getElementById("moveBtn").addEventListener("click", () => {
-      viewer.camera.moveForward(1000);
+    // 前進制御
+    const moveSpeed = 10.0; // メートル/フレーム
+    let movingForward = false;
+
+    function moveCameraForward() {
+      const camera = viewer.scene.camera;
+      const direction = camera.direction;
+      const moveStep = Cesium.Cartesian3.multiplyByScalar(direction, moveSpeed, new Cesium.Cartesian3());
+      camera.move(moveStep, 1);
+    }
+
+    // キー操作イベント
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'w' || e.key === 'ArrowUp') {
+        movingForward = true;
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'w' || e.key === 'ArrowUp') {
+        movingForward = false;
+      }
+    });
+
+    // 毎フレーム実行
+    viewer.scene.preRender.addEventListener(() => {
+      if (movingForward) {
+        moveCameraForward();
+      }
     });
   </script>
 </body>
