@@ -1,49 +1,90 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>3D Drive Sim</title>
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <meta charset="utf-8">
+  <title>NYC to DC Drive Sim</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
     html, body, #cesiumContainer {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
+      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
     }
-    #moveBtn {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 999;
+    #controls {
+      position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 8px;
+    }
+    #speedLabel {
+      display: inline-block; width: 60px;
     }
   </style>
 </head>
 <body>
-  <button id="moveBtn">進む</button>
   <div id="cesiumContainer"></div>
+  <div id="controls">
+    <div>
+      <label id="speedLabel">Speed: 1x</label>
+      <input type="range" id="speedSlider" min="1" max="10" value="1">
+    </div>
+    <button id="startBtn">Start</button>
+    <button id="stopBtn">Stop</button>
+  </div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0MWE4NGZhOC1lYmYxLTRjOWUtYmQ0OS1lNDU2ZGJiNDZmNDgiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDUzODUwMjR9.6YTPLgl2ucNdvl8lo7g9HqLNwhAUSxLGOsbZz92ZZT0';
+    // 🔑 Your Cesium Ion Access Token
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzNWIyNDkzNC1kOGViLTQwYTItYmE1Zi0xNDA1Zjg1MDIzYmYiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDU0MTI2ODN9.wKSTEp0E9crbwYhlxmkLaPOm_qK0bGDIZVovLXob69c';
 
-    const viewer = new Cesium.Viewer("cesiumContainer", {
-      terrain: Cesium.Terrain.fromWorldTerrain()
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      terrainProvider: Cesium.createWorldTerrain(),
+      timeline: false,
+      animation: false
     });
 
-    viewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(-74.006, 40.7128, 1000), // ニューヨーク上空
-      orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-15),
-        roll: 0
+    const route = [
+      { lon: -74.006, lat: 40.7128 }, // New York City
+      { lon: -73.8, lat: 40.6 },
+      { lon: -75, lat: 39.8 },
+      { lon: -76, lat: 39.3 },
+      { lon: -77.0369, lat: 38.9072 } // Washington, D.C.
+    ];
+
+    let index = 0;
+    let interval;
+    let speed = 1000;
+
+    const camera = viewer.scene.camera;
+
+    function moveCamera() {
+      if (index >= route.length) return;
+      const pos = route[index];
+      camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, 10000.0),
+        orientation: {
+          heading: Cesium.Math.toRadians(0),
+          pitch: Cesium.Math.toRadians(-30),
+          roll: 0.0
+        },
+        duration: speed / 1000
+      });
+      index++;
+    }
+
+    document.getElementById('startBtn').onclick = () => {
+      if (interval) clearInterval(interval);
+      interval = setInterval(moveCamera, speed);
+    };
+
+    document.getElementById('stopBtn').onclick = () => {
+      clearInterval(interval);
+    };
+
+    document.getElementById('speedSlider').oninput = (e) => {
+      const val = parseInt(e.target.value);
+      document.getElementById('speedLabel').textContent = `Speed: ${val}x`;
+      speed = 1000 / val;
+      if (interval) {
+        clearInterval(interval);
+        interval = setInterval(moveCamera, speed);
       }
-    });
-
-    document.getElementById("moveBtn").addEventListener("click", () => {
-      viewer.camera.moveForward(1000);
-    });
+    };
   </script>
 </body>
 </html>
