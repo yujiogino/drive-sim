@@ -2,101 +2,27 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>3Dドライブシミュレーション</title>
-
-<script>
-  // Ionトークンをここに追加
-  Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0MWE4NGZhOC1lYmYxLTRjOWUtYmQ0OS1lNDU2ZGJiNDZmNDgiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDUzODUwMjR9.6YTPLgl2ucNdvl8lo7g9HqLNwhAUSxLGOsbZz92ZZT0';
-
-  const viewer = new Cesium.Viewer('cesiumContainer', {
-    terrainProvider: Cesium.createWorldTerrain(),
-    shouldAnimate: true
-  });
-</script>
-
-
+  <title>Cesiumテスト</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
     html, body, #cesiumContainer {
-      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
-    }
-    #controlPanel {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(42, 42, 42, 0.8);
-      padding: 10px;
-      border-radius: 5px;
-    }
-    #controlPanel button {
-      color: white;
-      background: #007acc;
-      border: none;
-      padding: 8px 12px;
-      cursor: pointer;
-      border-radius: 3px;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
   </style>
 </head>
 <body>
   <div id="cesiumContainer"></div>
-  <div id="controlPanel">
-    <button id="moveButton">進む ▶</button>
-  </div>
   <script>
-    // Cesium Viewerの初期化
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0MWE4NGZhOC1lYmYxLTRjOWUtYmQ0OS1lNDU2ZGJiNDZmNDgiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDUzODUwMjR9.6YTPLgl2ucNdvl8lo7g9HqLNwhAUSxLGOsbZz92ZZT0';
+
     const viewer = new Cesium.Viewer('cesiumContainer', {
-      terrainProvider: Cesium.createWorldTerrain(),
-      shouldAnimate: true
+      terrainProvider: Cesium.createWorldTerrain()
     });
-
-    // 簡略化したニューヨークからロサンゼルスまでのルート座標
-    const route = [
-      [-74.006, 40.7128],   // ニューヨーク
-      [-75.1652, 39.9526],  // フィラデルフィア
-      [-77.0369, 38.9072],  // ワシントンD.C.
-      [-80.1918, 25.7617],  // マイアミ
-      [-90.0715, 29.9511],  // ニューオーリンズ
-      [-95.3698, 29.7604],  // ヒューストン
-      [-104.9903, 39.7392], // デンバー
-      [-112.0740, 33.4484], // フェニックス
-      [-118.2437, 34.0522]  // ロサンゼルス
-    ];
-
-    let currentIndex = 0;
-
-    // カメラを指定の位置に移動し、次のポイントを向く
-    function moveCamera() {
-      if (currentIndex < route.length - 1) {
-        const [lon, lat] = route[currentIndex];
-        const [nextLon, nextLat] = route[currentIndex + 1];
-
-        const position = Cesium.Cartesian3.fromDegrees(lon, lat, 1000);
-        const nextPosition = Cesium.Cartesian3.fromDegrees(nextLon, nextLat, 1000);
-
-        viewer.camera.setView({
-          destination: position,
-          orientation: {
-            direction: Cesium.Cartesian3.normalize(
-              Cesium.Cartesian3.subtract(nextPosition, position, new Cesium.Cartesian3()),
-              new Cesium.Cartesian3()
-            ),
-            up: Cesium.Cartesian3.UNIT_Z
-          }
-        });
-
-        currentIndex++;
-      } else {
-        alert("目的地に到着しました！");
-      }
-    }
-
-    // 初期位置にカメラを設定
-    moveCamera();
-
-    // ボタンのイベントリスナーを設定
-    document.getElementById('moveButton').addEventListener('click', moveCamera);
   </script>
 </body>
 </html>
