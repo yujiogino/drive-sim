@@ -2,127 +2,109 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>NY to DC Drive Sim</title>
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <title>Drive Sim</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
-    html, body, #cesiumContainer {
-      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
-    }
+    html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
     #controls {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(255, 255, 255, 0.8);
-      padding: 10px;
-      border-radius: 8px;
-      z-index: 10;
-    }
-    #controls label {
-      display: block;
-      margin-bottom: 6px;
+      position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.8); padding: 10px; border-radius: 8px;
     }
   </style>
 </head>
 <body>
   <div id="cesiumContainer"></div>
   <div id="controls">
-    <label>Speed:
-      <input type="range" id="speedSlider" min="1" max="100" value="20">
-    </label>
+    <label>Speed: <input type="range" id="speedSlider" min="1" max="100" value="20"></label><br/>
     <button id="startBtn">Start</button>
     <button id="stopBtn">Stop</button>
   </div>
 
   <script>
-    // 1. Cesium Viewer 初期化
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzNWIyNDkzNC1kOGViLTQwYTItYmE1Zi0xNDA1Zjg1MDIzYmYiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDU0MTI2ODN9.wKSTEp0E9crbwYhlxmkLaPOm_qK0bGDIZVovLXob69c';
+    (async function() {
+      Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzNWIyNDkzNC1kOGViLTQwYTItYmE1Zi0xNDA1Zjg1MDIzYmYiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDU0MTI2ODN9.wKSTEp0E9crbwYhlxmkLaPOm_qK0bGDIZVovLXob69c';
 
-    const viewer = new Cesium.Viewer("cesiumContainer", {
-      terrainProvider: Cesium.createWorldTerrain(),
-      timeline: false,
-      animation: false,
-      baseLayerPicker: false,
-    });
+      const viewer = new Cesium.Viewer("cesiumContainer", {
+        terrainProvider: await Cesium.CesiumTerrainProvider.fromIonAssetId(1),
+        timeline: false,
+        animation: false,
+        baseLayerPicker: false,
+      });
 
-    // 2. ドライブルート（ニューヨーク → ワシントンD.C.）
-    const route = [
-      Cesium.Cartesian3.fromDegrees(-74.006, 40.7128, 50),  // NYC
-      Cesium.Cartesian3.fromDegrees(-73.90, 40.5, 50),
-      Cesium.Cartesian3.fromDegrees(-75.0, 39.5, 50),
-      Cesium.Cartesian3.fromDegrees(-76.0, 39.0, 50),
-      Cesium.Cartesian3.fromDegrees(-77.0369, 38.9072, 50)  // DC
-    ];
+      const route = [
+        Cesium.Cartesian3.fromDegrees(-74.006, 40.7128, 50),
+        Cesium.Cartesian3.fromDegrees(-73.90, 40.5, 50),
+        Cesium.Cartesian3.fromDegrees(-75.0, 39.5, 50),
+        Cesium.Cartesian3.fromDegrees(-76.0, 39.0, 50),
+        Cesium.Cartesian3.fromDegrees(-77.0369, 38.9072, 50)
+      ];
 
-    // 3. ドライブ用変数
-    let index = 0;
-    let driving = false;
-    let speed = 20;
-    let driveInterval;
+      let index = 0;
+      let driving = false;
+      let speed = 20;
+      let driveInterval;
 
-    // 4. ドライブ関数
-    function driveRoute() {
-      if (index >= route.length - 1) return;
+      function driveRoute() {
+        if (index >= route.length - 1) return;
 
-      const start = route[index];
-      const end = route[index + 1];
-      const totalSteps = 100;
-      let step = 0;
+        const start = route[index];
+        const end = route[index + 1];
+        const totalSteps = 100;
+        let step = 0;
 
-      driveInterval = setInterval(() => {
-        if (!driving) return;
-        step++;
-        if (step > totalSteps) {
-          index++;
-          if (index < route.length - 1) {
-            driveRoute();
-          } else {
-            clearInterval(driveInterval);
+        driveInterval = setInterval(() => {
+          if (!driving) return;
+          step++;
+          if (step > totalSteps) {
+            index++;
+            if (index < route.length - 1) {
+              driveRoute();
+            } else {
+              clearInterval(driveInterval);
+            }
+            return;
           }
-          return;
+          const factor = step / totalSteps;
+          const interpolated = Cesium.Cartesian3.lerp(start, end, factor, new Cesium.Cartesian3());
+          viewer.camera.flyTo({
+            destination: interpolated,
+            duration: 0.1,
+            orientation: {
+              heading: viewer.camera.heading,
+              pitch: Cesium.Math.toRadians(-15),
+              roll: 0
+            }
+          });
+        }, 1000 / speed);
+      }
+
+      document.getElementById("startBtn").addEventListener("click", () => {
+        if (!driving) {
+          driving = true;
+          index = 0;
+          driveRoute();
         }
-        const factor = step / totalSteps;
-        const interpolated = Cesium.Cartesian3.lerp(start, end, factor, new Cesium.Cartesian3());
-        viewer.camera.flyTo({
-          destination: interpolated,
-          duration: 0.1,
-          orientation: {
-            heading: viewer.camera.heading,
-            pitch: Cesium.Math.toRadians(-15),
-            roll: 0
-          }
-        });
-      }, 1000 / speed);
-    }
+      });
 
-    // 5. コントロール設定
-    document.getElementById("startBtn").addEventListener("click", () => {
-      if (!driving) {
-        driving = true;
-        index = 0;
-        driveRoute();
-      }
-    });
+      document.getElementById("stopBtn").addEventListener("click", () => {
+        driving = false;
+        clearInterval(driveInterval);
+      });
 
-    document.getElementById("stopBtn").addEventListener("click", () => {
-      driving = false;
-      clearInterval(driveInterval);
-    });
+      document.getElementById("speedSlider").addEventListener("input", (e) => {
+        speed = parseInt(e.target.value);
+      });
 
-    document.getElementById("speedSlider").addEventListener("input", (e) => {
-      speed = parseInt(e.target.value);
-    });
-
-    // 初期視点
-    viewer.camera.flyTo({
-      destination: route[0],
-      duration: 2,
-      orientation: {
-        heading: 0,
-        pitch: Cesium.Math.toRadians(-20),
-        roll: 0
-      }
-    });
+      viewer.camera.flyTo({
+        destination: route[0],
+        duration: 2,
+        orientation: {
+          heading: 0,
+          pitch: Cesium.Math.toRadians(-20),
+          roll: 0
+        }
+      });
+    })();
   </script>
 </body>
 </html>
