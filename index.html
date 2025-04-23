@@ -2,22 +2,22 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Cesium テスト</title>
+  <title>3D Drive Sim</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
     html, body, #cesiumContainer {
-      width: 100%;
-      height: 100%;
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
     }
     #moveBtn {
       position: absolute;
       top: 10px;
       left: 10px;
-      z-index: 10;
+      z-index: 999;
     }
   </style>
 </head>
@@ -28,12 +28,21 @@
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0MWE4NGZhOC1lYmYxLTRjOWUtYmQ0OS1lNDU2ZGJiNDZmNDgiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDUzODUwMjR9.6YTPLgl2ucNdvl8lo7g9HqLNwhAUSxLGOsbZz92ZZT0';
 
-    const viewer = new Cesium.Viewer('cesiumContainer', {
-      terrainProvider: Cesium.createWorldTerrain()
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain()
     });
 
-    document.getElementById('moveBtn').addEventListener('click', () => {
-      viewer.camera.moveForward(1000); // 簡単な移動テスト
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(-74.006, 40.7128, 1000), // ニューヨーク上空
+      orientation: {
+        heading: Cesium.Math.toRadians(0),
+        pitch: Cesium.Math.toRadians(-15),
+        roll: 0
+      }
+    });
+
+    document.getElementById("moveBtn").addEventListener("click", () => {
+      viewer.camera.moveForward(1000);
     });
   </script>
 </body>
