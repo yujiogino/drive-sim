@@ -1,110 +1,118 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <title>Drive Sim</title>
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <title>Street View Drive Sim</title>
   <style>
-    html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    #container {
+      display: flex;
+      height: 100vh;
+    }
+    #street-view, #map {
+      flex: 1;
+    }
     #controls {
-      position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.8); padding: 10px; border-radius: 8px;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 10px;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <div id="cesiumContainer"></div>
   <div id="controls">
-    <label>Speed: <input type="range" id="speedSlider" min="1" max="100" value="20"></label><br/>
-    <button id="startBtn">Start</button>
-    <button id="stopBtn">Stop</button>
+    <button id="start">Start</button>
+    <button id="stop">Stop</button>
+    <label for="speed">Speed:</label>
+    <input type="range" id="speed" min="1" max="10" value="5">
+  </div>
+  <div id="container">
+    <div id="street-view"></div>
+    <div id="map"></div>
   </div>
 
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry"></script>
   <script>
-    (async function() {
-      Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzNWIyNDkzNC1kOGViLTQwYTItYmE1Zi0xNDA1Zjg1MDIzYmYiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDU0MTI2ODN9.wKSTEp0E9crbwYhlxmkLaPOm_qK0bGDIZVovLXob69c';
+    const route = [
+      { lat: 40.7128, lng: -74.0060 }, // NYC
+      { lat: 39.9526, lng: -75.1652 }, // Philadelphia
+      { lat: 38.9072, lng: -77.0369 }, // DC
+      { lat: 35.2271, lng: -80.8431 }, // Charlotte
+      { lat: 33.7488, lng: -84.3877 }, // Atlanta
+      { lat: 25.7617, lng: -80.1918 }, // Miami
+    ];
 
-      const viewer = new Cesium.Viewer("cesiumContainer", {
-        terrainProvider: await Cesium.CesiumTerrainProvider.fromIonAssetId(1),
-        timeline: false,
-        animation: false,
-        baseLayerPicker: false,
+    let map, streetView, marker;
+    let index = 0;
+    let intervalId = null;
+
+    function initMap() {
+      const mapDiv = document.getElementById("map");
+      const streetDiv = document.getElementById("street-view");
+
+      map = new google.maps.Map(mapDiv, {
+        center: route[0],
+        zoom: 6,
       });
 
-      const route = [
-        Cesium.Cartesian3.fromDegrees(-74.006, 40.7128, 50),
-        Cesium.Cartesian3.fromDegrees(-73.90, 40.5, 50),
-        Cesium.Cartesian3.fromDegrees(-75.0, 39.5, 50),
-        Cesium.Cartesian3.fromDegrees(-76.0, 39.0, 50),
-        Cesium.Cartesian3.fromDegrees(-77.0369, 38.9072, 50)
-      ];
+      streetView = new google.maps.StreetViewPanorama(streetDiv, {
+        position: route[0],
+        pov: { heading: 0, pitch: 0 },
+        zoom: 1,
+      });
 
-      let index = 0;
-      let driving = false;
-      let speed = 20;
-      let driveInterval;
+      map.setStreetView(streetView);
 
-      function driveRoute() {
-        if (index >= route.length - 1) return;
+      marker = new google.maps.Marker({
+        position: route[0],
+        map: map,
+      });
+    }
 
-        const start = route[index];
-        const end = route[index + 1];
-        const totalSteps = 100;
-        let step = 0;
-
-        driveInterval = setInterval(() => {
-          if (!driving) return;
-          step++;
-          if (step > totalSteps) {
-            index++;
-            if (index < route.length - 1) {
-              driveRoute();
-            } else {
-              clearInterval(driveInterval);
-            }
-            return;
-          }
-          const factor = step / totalSteps;
-          const interpolated = Cesium.Cartesian3.lerp(start, end, factor, new Cesium.Cartesian3());
-          viewer.camera.flyTo({
-            destination: interpolated,
-            duration: 0.1,
-            orientation: {
-              heading: viewer.camera.heading,
-              pitch: Cesium.Math.toRadians(-15),
-              roll: 0
-            }
-          });
-        }, 1000 / speed);
+    function moveToPoint(i) {
+      if (i >= route.length) {
+        clearInterval(intervalId);
+        return;
       }
 
-      document.getElementById("startBtn").addEventListener("click", () => {
-        if (!driving) {
-          driving = true;
-          index = 0;
-          driveRoute();
-        }
-      });
+      const point = route[i];
+      streetView.setPosition(point);
+      map.panTo(point);
+      marker.setPosition(point);
 
-      document.getElementById("stopBtn").addEventListener("click", () => {
-        driving = false;
-        clearInterval(driveInterval);
-      });
+      if (i + 1 < route.length) {
+        const heading = google.maps.geometry.spherical.computeHeading(point, route[i + 1]);
+        streetView.setPov({ heading, pitch: 0 });
+      }
+    }
 
-      document.getElementById("speedSlider").addEventListener("input", (e) => {
-        speed = parseInt(e.target.value);
-      });
+    function startDrive() {
+      if (intervalId) return;
 
-      viewer.camera.flyTo({
-        destination: route[0],
-        duration: 2,
-        orientation: {
-          heading: 0,
-          pitch: Cesium.Math.toRadians(-20),
-          roll: 0
-        }
-      });
-    })();
+      const speed = parseInt(document.getElementById("speed").value);
+      intervalId = setInterval(() => {
+        moveToPoint(index);
+        index++;
+      }, 1000 / speed);
+    }
+
+    function stopDrive() {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+
+    document.getElementById("start").addEventListener("click", startDrive);
+    document.getElementById("stop").addEventListener("click", stopDrive);
+    document.getElementById("speed").addEventListener("input", function () {
+      if (intervalId) {
+        stopDrive();
+        startDrive();
+      }
+    });
+
+    window.onload = initMap;
   </script>
 </body>
 </html>
