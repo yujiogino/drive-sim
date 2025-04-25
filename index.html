@@ -1,154 +1,146 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
-    <title>Google Maps ドライブシミュレーター</title>
+    <title>Street View Drive Simulation</title>
     <style>
-      body {
+      html, body {
+        height: 100%;
         margin: 0;
+        display: flex;
         font-family: sans-serif;
       }
-      #container {
-        display: flex;
-        height: 90vh;
-      }
-      #streetview, #map {
+      #map, #pano {
+        height: 100%;
         flex: 1;
       }
       #controls {
-        height: 10vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 20px;
-        background: #eee;
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
         padding: 10px;
+        z-index: 9999;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
       }
     </style>
   </head>
   <body>
-    <div id="container">
-      <div id="streetview"></div>
-      <div id="map"></div>
-    </div>
+    <div id="pano"></div>
+    <div id="map"></div>
     <div id="controls">
-      <button id="start">スタート</button>
-      <button id="stop">ストップ</button>
-      速度：<input type="range" id="speed" min="1" max="10" value="5">
+      <button id="startBtn">Start</button>
+      <button id="stopBtn">Stop</button>
+      Speed: <input type="range" id="speedSlider" min="500" max="5000" value="2000">
     </div>
 
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry"></script>
     <script>
-      let map, streetView, directionsService, directionsRenderer;
-      let stepIndex = 0;
-      let path = [];
-      let interval;
+      let map, panorama, marker, route = [], currentIndex = 0, intervalId = null;
 
       function initMap() {
-        const start = { lat: 40.7128, lng: -74.0060 }; // ニューヨーク
+        const start = { lat: 40.7128, lng: -74.0060 }; // New York
+        const end = { lat: 25.7617, lng: -80.1918 };   // Miami
 
         map = new google.maps.Map(document.getElementById("map"), {
           center: start,
-          zoom: 6,
+          zoom: 7,
         });
 
-        directionsService = new google.maps.DirectionsService();
-        directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: true });
-        directionsRenderer.setMap(map);
+        panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), {
+          position: start,
+          pov: { heading: 0, pitch: 0 },
+          visible: true,
+        });
 
-        streetView = new google.maps.StreetViewPanorama(
-          document.getElementById("streetview"), {
-            position: start,
-            pov: { heading: 0, pitch: 0 },
-            visible: true,
+        map.setStreetView(panorama);
+        marker = new google.maps.Marker({ map });
+
+        const directionsService = new google.maps.DirectionsService();
+        directionsService.route({
+          origin: start,
+          destination: end,
+          travelMode: google.maps.TravelMode.DRIVING
+        }, async (result, status) => {
+          if (status === "OK") {
+            const path = result.routes[0].overview_path;
+            route = await filterStreetViewPoints(path);
+            drawRoute();
           }
-        );
-        map.setStreetView(streetView);
+        });
 
-        directionsService.route(
-          {
-            origin: start,
-            destination: { lat: 25.7617, lng: -80.1918 }, // マイアミ
-            travelMode: google.maps.TravelMode.DRIVING,
-          },
-          (result, status) => {
-            if (status === "OK") {
-              directionsRenderer.setDirections(result);
-              const route = result.routes[0].legs[0].steps;
-              path = route.flatMap((step) => step.path);
-            }
-          }
-        );
+        document.getElementById("startBtn").onclick = startDrive;
+        document.getElementById("stopBtn").onclick = stopDrive;
+      }
 
-        document.getElementById("start").addEventListener("click", startDrive);
-        document.getElementById("stop").addEventListener("click", stopDrive);
+      async function filterStreetViewPoints(path) {
+        const step = 10; // 約10ポイントに1回チェック
+        const filtered = [];
+
+        for (let i = 0; i < path.length; i += step) {
+          const location = path[i];
+          const isAvailable = await hasStreetView(location);
+          if (isAvailable) filtered.push(location);
+        }
+        return filtered;
+      }
+
+      function hasStreetView(latlng) {
+        return new Promise(resolve => {
+          const sv = new google.maps.StreetViewService();
+          sv.getPanorama({ location: latlng, radius: 50 }, (data, status) => {
+            resolve(status === 'OK');
+          });
+        });
+      }
+
+      function drawRoute() {
+        new google.maps.Polyline({
+          path: route,
+          map: map,
+          strokeColor: "#FF0000",
+          strokeOpacity: 1.0,
+          strokeWeight: 4,
+        });
       }
 
       function startDrive() {
-        if (interval) clearInterval(interval);
-        const speed = 1100 - document.getElementById("speed").value * 100;
-        interval = setInterval(() => {
-          if (stepIndex >= path.length) {
-            clearInterval(interval);
+        const speed = parseInt(document.getElementById("speedSlider").value);
+        if (!route.length) return;
+
+        if (intervalId) clearInterval(intervalId);
+
+        intervalId = setInterval(() => {
+          if (currentIndex >= route.length) {
+            clearInterval(intervalId);
+            currentIndex = 0;
             return;
           }
-          const location = path[stepIndex];
-          const next = path[stepIndex + 1];
 
-          streetView.setPosition(location);
-
-          if (next) {
-            const heading = google.maps.geometry.spherical.computeHeading(location, next);
-            streetView.setPov({ heading, pitch: 0 });
-          }
-
+          const location = route[currentIndex];
+          marker.setPosition(location);
           map.panTo(location);
-          stepIndex++;
+          setStreetViewDirection(location, currentIndex);
+          currentIndex++;
         }, speed);
       }
 
-function moveToNextPoint() {
-  if (!isPlaying || currentIndex >= route.length - 1) return;
-
-  const point = route[currentIndex];
-  const nextPoint = route[currentIndex + 1];
-  const heading = google.maps.geometry.spherical.computeHeading(point, nextPoint);
-
-  // ストリートビューのある地点を探す
-  streetViewService.getPanorama(
-    {
-      location: point,
-      radius: 50 // 半径50m以内で探索
-    },
-    (data, status) => {
-      if (status === google.maps.StreetViewStatus.OK) {
-        streetView.setPano(data.location.pano);
-        streetView.setPov({ heading: heading, pitch: 0 });
-        streetView.setVisible(true);
-
-        streetViewMarker.setPosition(data.location.latLng);
-        map.panTo(data.location.latLng);
-      } else {
-        console.warn("ストリートビューが見つかりません:", point);
-        // ストリートビューが無ければマーカーのみ移動して続行
-        streetView.setVisible(false);
-        streetViewMarker.setPosition(point);
-        map.panTo(point);
-      }
-    }
-  );
-
-  currentIndex++;
-  if (isPlaying) {
-    setTimeout(moveToNextPoint, speed);
-  }
-}
-
-
       function stopDrive() {
-        clearInterval(interval);
+        clearInterval(intervalId);
       }
-    </script>
 
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry&callback=initMap" async defer></script>
+      function setStreetViewDirection(location, index) {
+        if (index + 1 >= route.length) return;
+
+        const next = route[index + 1];
+        const heading = google.maps.geometry.spherical.computeHeading(location, next);
+
+        panorama.setPosition(location);
+        panorama.setPov({ heading, pitch: 0 });
+      }
+
+      window.onload = initMap;
+    </script>
   </body>
 </html>
