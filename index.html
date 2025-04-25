@@ -1,147 +1,138 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Street View Drive Simulation</title>
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      display: flex;
-      font-family: sans-serif;
-    }
-    #map, #pano {
-      height: 100%;
-      flex: 1;
-    }
-    #controls {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: white;
-      padding: 10px;
-      z-index: 9999;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    }
-  </style>
-</head>
-<body>
-  <div id="pano"></div>
-  <div id="map"></div>
-  <div id="controls">
-    <button id="startBtn">Start</button>
-    <button id="stopBtn">Stop</button>
-    Speed: <input type="range" id="speedSlider" min="500" max="5000" value="2000">
-  </div>
-
-  <script>
-    let map, panorama, marker, route = [], currentIndex = 0, intervalId = null;
-
-    function initMap() {
-      const start = { lat: 40.7128, lng: -74.0060 }; // New York
-      const end = { lat: 25.7617, lng: -80.1918 };   // Miami
-
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: start,
-        zoom: 7,
-      });
-
-      panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), {
-        position: start,
-        pov: { heading: 0, pitch: 0 },
-        visible: true,
-      });
-
-      map.setStreetView(panorama);
-      marker = new google.maps.Marker({ map });
-
-      const directionsService = new google.maps.DirectionsService();
-      directionsService.route({
-        origin: start,
-        destination: end,
-        travelMode: google.maps.TravelMode.DRIVING
-      }, async (result, status) => {
-        if (status === "OK") {
-          const path = result.routes[0].overview_path;
-          route = await filterStreetViewPoints(path);
-          drawRoute();
-        }
-      });
-
-      document.getElementById("startBtn").onclick = startDrive;
-      document.getElementById("stopBtn").onclick = stopDrive;
-    }
-
-    async function filterStreetViewPoints(path) {
-      const step = 10;
-      const filtered = [];
-      for (let i = 0; i < path.length; i += step) {
-        const location = path[i];
-        const isAvailable = await hasStreetView(location);
-        if (isAvailable) filtered.push(location);
+  <head>
+    <meta charset="utf-8">
+    <title>Street View Drive Simulation (Optimized)</title>
+    <style>
+      html, body {
+        height: 100%; margin: 0; display: flex; font-family: sans-serif;
       }
-      return filtered;
-    }
+      #map, #pano {
+        height: 100%; flex: 1;
+      }
+      #controls {
+        position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+        background: white; padding: 10px; z-index: 9999;
+        border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="pano"></div>
+    <div id="map"></div>
+    <div id="controls">
+      <button id="startBtn">Start</button>
+      <button id="stopBtn">Stop</button>
+      Speed: <input type="range" id="speedSlider" min="500" max="5000" value="2000">
+    </div>
 
-    function hasStreetView(latlng) {
-      return new Promise(resolve => {
-        const sv = new google.maps.StreetViewService();
-        sv.getPanorama({ location: latlng, radius: 50 }, (data, status) => {
-          resolve(status === 'OK');
+    <script>
+      let map, panorama, marker, route = [], currentIndex = 0, intervalId = null;
+
+      function initMap() {
+        const start = { lat: 40.7128, lng: -74.0060 }; // New York
+        const end = { lat: 25.7617, lng: -80.1918 };   // Miami
+
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: start,
+          zoom: 7,
         });
-      });
-    }
 
-    function drawRoute() {
-      new google.maps.Polyline({
-        path: route,
-        map: map,
-        strokeColor: "#FF0000",
-        strokeOpacity: 1.0,
-        strokeWeight: 4,
-      });
-    }
+        panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), {
+          position: start,
+          pov: { heading: 0, pitch: 0, zoom: 1 },
+          visible: true,
+        });
 
-    function startDrive() {
-      const speed = parseInt(document.getElementById("speedSlider").value);
-      if (!route.length) return;
+        map.setStreetView(panorama);
+        marker = new google.maps.Marker({ map });
 
-      if (intervalId) clearInterval(intervalId);
+        const directionsService = new google.maps.DirectionsService();
+        directionsService.route({
+          origin: start,
+          destination: end,
+          travelMode: google.maps.TravelMode.DRIVING
+        }, async (result, status) => {
+          if (status === "OK") {
+            const path = result.routes[0].overview_path;
+            route = await filterStreetViewPoints(path);
+            drawRoute();
+          }
+        });
 
-      intervalId = setInterval(() => {
-        if (currentIndex >= route.length) {
-          clearInterval(intervalId);
-          currentIndex = 0;
-          return;
+        document.getElementById("startBtn").onclick = startDrive;
+        document.getElementById("stopBtn").onclick = stopDrive;
+      }
+
+      async function filterStreetViewPoints(path) {
+        const step = 10;
+        const filtered = [];
+        for (let i = 0; i < path.length; i += step) {
+          const location = path[i];
+          const isAvailable = await hasStreetView(location);
+          if (isAvailable) filtered.push(location);
         }
+        return filtered;
+      }
 
-        const location = route[currentIndex];
-        marker.setPosition(location);
-        map.panTo(location);
-        setStreetViewDirection(location, currentIndex);
-        currentIndex++;
-      }, speed);
-    }
+      function hasStreetView(latlng) {
+        return new Promise(resolve => {
+          const sv = new google.maps.StreetViewService();
+          sv.getPanorama({ location: latlng, radius: 50 }, (data, status) => {
+            resolve(status === 'OK');
+          });
+        });
+      }
 
-    function stopDrive() {
-      clearInterval(intervalId);
-    }
+      function drawRoute() {
+        new google.maps.Polyline({
+          path: route,
+          map: map,
+          strokeColor: "#FF0000",
+          strokeOpacity: 1.0,
+          strokeWeight: 4,
+        });
+      }
 
-    function setStreetViewDirection(location, index) {
-      if (index + 1 >= route.length) return;
+      function startDrive() {
+        const speed = parseInt(document.getElementById("speedSlider").value);
+        if (!route.length) return;
 
-      const next = route[index + 1];
-      const heading = google.maps.geometry.spherical.computeHeading(location, next);
+        if (intervalId) clearInterval(intervalId);
 
-      panorama.setPosition(location);
-      panorama.setPov({ heading, pitch: 0 });
-    }
-  </script>
+        intervalId = setInterval(() => {
+          if (currentIndex >= route.length) {
+            clearInterval(intervalId);
+            currentIndex = 0;
+            return;
+          }
 
-  <!-- Google Maps API を非同期で読み込み -->
-  <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&callback=initMap&libraries=geometry"
-    async defer></script>
-</body>
+          const location = route[currentIndex];
+          marker.setPosition(location);
+          map.panTo(location);
+          setStreetViewDirection(location, currentIndex);
+          currentIndex++;
+        }, speed);
+      }
+
+      function stopDrive() {
+        clearInterval(intervalId);
+      }
+
+      function setStreetViewDirection(location, index) {
+        if (index + 1 >= route.length) return;
+
+        const next = route[index + 1];
+        const heading = google.maps.geometry.spherical.computeHeading(location, next);
+
+        panorama.setPosition(location);
+        panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+      }
+
+      window.initMap = initMap;
+    </script>
+
+    <!-- 正しい読み込み方式 -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry&callback=initMap" async defer></script>
+  </body>
 </html>
