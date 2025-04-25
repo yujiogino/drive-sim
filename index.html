@@ -1,118 +1,116 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Street View Drive Sim</title>
-  <style>
-    #container {
-      display: flex;
-      height: 100vh;
-    }
-    #street-view, #map {
-      flex: 1;
-    }
-    #controls {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: white;
-      padding: 10px;
-      z-index: 10;
-    }
-  </style>
-</head>
-<body>
-  <div id="controls">
-    <button id="start">Start</button>
-    <button id="stop">Stop</button>
-    <label for="speed">Speed:</label>
-    <input type="range" id="speed" min="1" max="10" value="5">
-  </div>
-  <div id="container">
-    <div id="street-view"></div>
-    <div id="map"></div>
-  </div>
+  <head>
+    <meta charset="utf-8">
+    <title>Google Maps ドライブシミュレーター</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+      }
+      #container {
+        display: flex;
+        height: 90vh;
+      }
+      #streetview, #map {
+        flex: 1;
+      }
+      #controls {
+        height: 10vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background: #eee;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="streetview"></div>
+      <div id="map"></div>
+    </div>
+    <div id="controls">
+      <button id="start">スタート</button>
+      <button id="stop">ストップ</button>
+      速度：<input type="range" id="speed" min="1" max="10" value="5">
+    </div>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry"></script>
-  <script>
-    const route = [
-      { lat: 40.7128, lng: -74.0060 }, // NYC
-      { lat: 39.9526, lng: -75.1652 }, // Philadelphia
-      { lat: 38.9072, lng: -77.0369 }, // DC
-      { lat: 35.2271, lng: -80.8431 }, // Charlotte
-      { lat: 33.7488, lng: -84.3877 }, // Atlanta
-      { lat: 25.7617, lng: -80.1918 }, // Miami
-    ];
+    <script>
+      let map, streetView, directionsService, directionsRenderer;
+      let stepIndex = 0;
+      let path = [];
+      let interval;
 
-    let map, streetView, marker;
-    let index = 0;
-    let intervalId = null;
+      function initMap() {
+        const start = { lat: 40.7128, lng: -74.0060 }; // ニューヨーク
 
-    function initMap() {
-      const mapDiv = document.getElementById("map");
-      const streetDiv = document.getElementById("street-view");
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: start,
+          zoom: 6,
+        });
 
-      map = new google.maps.Map(mapDiv, {
-        center: route[0],
-        zoom: 6,
-      });
+        directionsService = new google.maps.DirectionsService();
+        directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: true });
+        directionsRenderer.setMap(map);
 
-      streetView = new google.maps.StreetViewPanorama(streetDiv, {
-        position: route[0],
-        pov: { heading: 0, pitch: 0 },
-        zoom: 1,
-      });
+        streetView = new google.maps.StreetViewPanorama(
+          document.getElementById("streetview"), {
+            position: start,
+            pov: { heading: 0, pitch: 0 },
+            visible: true,
+          }
+        );
+        map.setStreetView(streetView);
 
-      map.setStreetView(streetView);
+        directionsService.route(
+          {
+            origin: start,
+            destination: { lat: 25.7617, lng: -80.1918 }, // マイアミ
+            travelMode: google.maps.TravelMode.DRIVING,
+          },
+          (result, status) => {
+            if (status === "OK") {
+              directionsRenderer.setDirections(result);
+              const route = result.routes[0].legs[0].steps;
+              path = route.flatMap((step) => step.path);
+            }
+          }
+        );
 
-      marker = new google.maps.Marker({
-        position: route[0],
-        map: map,
-      });
-    }
-
-    function moveToPoint(i) {
-      if (i >= route.length) {
-        clearInterval(intervalId);
-        return;
+        document.getElementById("start").addEventListener("click", startDrive);
+        document.getElementById("stop").addEventListener("click", stopDrive);
       }
 
-      const point = route[i];
-      streetView.setPosition(point);
-      map.panTo(point);
-      marker.setPosition(point);
+      function startDrive() {
+        if (interval) clearInterval(interval);
+        const speed = 1100 - document.getElementById("speed").value * 100;
+        interval = setInterval(() => {
+          if (stepIndex >= path.length) {
+            clearInterval(interval);
+            return;
+          }
+          const location = path[stepIndex];
+          const next = path[stepIndex + 1];
 
-      if (i + 1 < route.length) {
-        const heading = google.maps.geometry.spherical.computeHeading(point, route[i + 1]);
-        streetView.setPov({ heading, pitch: 0 });
+          streetView.setPosition(location);
+
+          if (next) {
+            const heading = google.maps.geometry.spherical.computeHeading(location, next);
+            streetView.setPov({ heading, pitch: 0 });
+          }
+
+          map.panTo(location);
+          stepIndex++;
+        }, speed);
       }
-    }
 
-    function startDrive() {
-      if (intervalId) return;
-
-      const speed = parseInt(document.getElementById("speed").value);
-      intervalId = setInterval(() => {
-        moveToPoint(index);
-        index++;
-      }, 1000 / speed);
-    }
-
-    function stopDrive() {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-
-    document.getElementById("start").addEventListener("click", startDrive);
-    document.getElementById("stop").addEventListener("click", stopDrive);
-    document.getElementById("speed").addEventListener("input", function () {
-      if (intervalId) {
-        stopDrive();
-        startDrive();
+      function stopDrive() {
+        clearInterval(interval);
       }
-    });
+    </script>
 
-    window.onload = initMap;
-  </script>
-</body>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry&callback=initMap" async defer></script>
+  </body>
 </html>
