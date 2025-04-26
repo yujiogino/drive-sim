@@ -1,166 +1,118 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Google Maps Drive Simulation</title>
+  <title>Street View Drive Sim</title>
   <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      overflow: hidden;
-      font-family: sans-serif;
-    }
     #container {
       display: flex;
-      height: calc(100% - 60px);
+      height: 100vh;
     }
     #street-view, #map {
       flex: 1;
     }
     #controls {
-      height: 60px;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
       padding: 10px;
-      background: #eee;
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
+  <div id="controls">
+    <button id="start">Start</button>
+    <button id="stop">Stop</button>
+    <label for="speed">Speed:</label>
+    <input type="range" id="speed" min="1" max="10" value="5">
+  </div>
   <div id="container">
     <div id="street-view"></div>
     <div id="map"></div>
   </div>
-  <div id="controls">
-    <button onclick="startDrive()">Start</button>
-    <button onclick="stopDrive()">Stop</button>
-    Speed:
-    <input type="range" min="500" max="3000" value="1500" id="speedRange">
-  </div>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&callback=initMap" async defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry"></script>
   <script>
-    let map, panorama, interval, currentIndex = 0;
-    let speed = 1500;
-
     const route = [
-      { lat: 40.7128, lng: -74.0060 }, // New York
+      { lat: 40.7128, lng: -74.0060 }, // NYC
       { lat: 39.9526, lng: -75.1652 }, // Philadelphia
-      { lat: 39.2904, lng: -76.6122 }, // Baltimore
-      { lat: 38.9072, lng: -77.0369 }, // Washington DC
-      { lat: 36.8508, lng: -76.2859 }, // Norfolk
+      { lat: 38.9072, lng: -77.0369 }, // DC
       { lat: 35.2271, lng: -80.8431 }, // Charlotte
       { lat: 33.7488, lng: -84.3877 }, // Atlanta
-      { lat: 30.3322, lng: -81.6557 }, // Jacksonville
-      { lat: 27.9506, lng: -82.4572 }, // Tampa
-      { lat: 25.7617, lng: -80.1918 }  // Miami
+      { lat: 25.7617, lng: -80.1918 }, // Miami
     ];
 
+    let map, streetView, marker;
+    let index = 0;
+    let intervalId = null;
+
     function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
+      const mapDiv = document.getElementById("map");
+      const streetDiv = document.getElementById("street-view");
+
+      map = new google.maps.Map(mapDiv, {
         center: route[0],
-        zoom: 7
+        zoom: 6,
       });
 
-      panorama = new google.maps.StreetViewPanorama(
-        document.getElementById("street-view"), {
-          position: route[0],
-          pov: { heading: 0, pitch: 0 },
-          visible: true
-        }
-      );
-
-      map.setStreetView(panorama);
-
-      // 経路線を地図上に描画
-      new google.maps.Polyline({
-        path: route,
-        geodesic: true,
-        strokeColor: "#FF0000",
-        strokeOpacity: 1.0,
-        strokeWeight: 4,
-        map: map
+      streetView = new google.maps.StreetViewPanorama(streetDiv, {
+        position: route[0],
+        pov: { heading: 0, pitch: 0 },
+        zoom: 1,
       });
+
+      map.setStreetView(streetView);
+
+      marker = new google.maps.Marker({
+        position: route[0],
+        map: map,
+      });
+    }
+
+    function moveToPoint(i) {
+      if (i >= route.length) {
+        clearInterval(intervalId);
+        return;
+      }
+
+      const point = route[i];
+      streetView.setPosition(point);
+      map.panTo(point);
+      marker.setPosition(point);
+
+      if (i + 1 < route.length) {
+        const heading = google.maps.geometry.spherical.computeHeading(point, route[i + 1]);
+        streetView.setPov({ heading, pitch: 0 });
+      }
     }
 
     function startDrive() {
-      stopDrive(); // 前の interval を止める
-      speed = document.getElementById("speedRange").value;
+      if (intervalId) return;
 
-      interval = setInterval(() => {
-        if (currentIndex >= route.length - 1) {
-          stopDrive();
-          return;
-        }
-
-        const current = route[currentIndex];
-        const next = route[currentIndex + 1];
-
-        const heading = google.maps.geometry.spherical.computeHeading(
-          new google.maps.LatLng(current.lat, current.lng),
-          new google.maps.LatLng(next.lat, next.lng)
-        );
-
-        panorama.setPosition(current);
-        panorama.setPov({ heading: heading, pitch: 0 });
-
-        map.panTo(current);
-        currentIndex++;
-      }, speed);
+      const speed = parseInt(document.getElementById("speed").value);
+      intervalId = setInterval(() => {
+        moveToPoint(index);
+        index++;
+      }, 1000 / speed);
     }
-
-    function moveToNextPoint() {
-    if (!isPlaying || currentIndex >= route.length - 1) return;
-
-     const point = route[currentIndex];
-     const nextPoint = route[currentIndex + 1];
-     const heading = google.maps.geometry.spherical.computeHeading(point, nextPoint);
-
-  // ストリートビューのある地点を探す
-  streetViewService.getPanorama(
-    {
-      location: point,
-      radius: 50 // 半径50m以内で探索
-    },
-    (data, status) => {
-      if (status === google.maps.StreetViewStatus.OK) {
-        streetView.setPano(data.location.pano);
-        streetView.setPov({ heading: heading, pitch: 0 });
-        streetView.setVisible(true);
-
-        streetViewMarker.setPosition(data.location.latLng);
-        map.panTo(data.location.latLng);
-      } else {
-        console.warn("ストリートビューが見つかりません:", point);
-        // ストリートビューが無ければマーカーのみ移動して続行
-        streetView.setVisible(false);
-        streetViewMarker.setPosition(point);
-        map.panTo(point);
-      }
-    }
-  );
-
-  currentIndex++;
-  if (isPlaying) {
-    setTimeout(moveToNextPoint, speed);
-  }
-}
-
-
-
-
-
 
     function stopDrive() {
-      clearInterval(interval);
+      clearInterval(intervalId);
+      intervalId = null;
     }
 
-    document.getElementById("speedRange").addEventListener("input", e => {
-      speed = e.target.value;
-      if (interval) {
-        startDrive(); // 再スタートして速度変更反映
+    document.getElementById("start").addEventListener("click", startDrive);
+    document.getElementById("stop").addEventListener("click", stopDrive);
+    document.getElementById("speed").addEventListener("input", function () {
+      if (intervalId) {
+        stopDrive();
+        startDrive();
       }
     });
+
+    window.onload = initMap;
   </script>
 </body>
 </html>
