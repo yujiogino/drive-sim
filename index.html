@@ -1,128 +1,144 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <title>NY to DC Drive Sim</title>
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <meta charset="utf-8">
+  <title>Street View Drive Simulation (Final Fixed Version)</title>
   <style>
-    html, body, #cesiumContainer {
-      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+    html, body {
+      height: 100%; margin: 0; display: flex; font-family: sans-serif;
+    }
+    #map, #pano {
+      height: 100%; flex: 1;
     }
     #controls {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(255, 255, 255, 0.8);
-      padding: 10px;
-      border-radius: 8px;
-      z-index: 10;
-    }
-    #controls label {
-      display: block;
-      margin-bottom: 6px;
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      background: white; padding: 10px; z-index: 9999;
+      border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
   </style>
 </head>
 <body>
-  <div id="cesiumContainer"></div>
+  <div id="pano"></div>
+  <div id="map"></div>
   <div id="controls">
-    <label>Speed:
-      <input type="range" id="speedSlider" min="1" max="100" value="20">
-    </label>
     <button id="startBtn">Start</button>
     <button id="stopBtn">Stop</button>
+    Speed: <input type="range" id="speedSlider" min="500" max="5000" value="2000">
   </div>
 
   <script>
-    // 1. Cesium Viewer 初期化
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzNWIyNDkzNC1kOGViLTQwYTItYmE1Zi0xNDA1Zjg1MDIzYmYiLCJpZCI6Mjk2Mzk2LCJpYXQiOjE3NDU0MTI2ODN9.wKSTEp0E9crbwYhlxmkLaPOm_qK0bGDIZVovLXob69c';
+    let map, panorama, marker, route = [], currentIndex = 0, intervalId = null;
 
-    const viewer = new Cesium.Viewer("cesiumContainer", {
-      terrainProvider: Cesium.createWorldTerrain(),
-      timeline: false,
-      animation: false,
-      baseLayerPicker: false,
-    });
+    function initMap() {
+      const start = { lat: 40.7128, lng: -74.0060 }; // New York
+      const end = { lat: 25.7617, lng: -80.1918 };   // Miami
 
-    // 2. ドライブルート（ニューヨーク → ワシントンD.C.）
-    const route = [
-      Cesium.Cartesian3.fromDegrees(-74.006, 40.7128, 50),  // NYC
-      Cesium.Cartesian3.fromDegrees(-73.90, 40.5, 50),
-      Cesium.Cartesian3.fromDegrees(-75.0, 39.5, 50),
-      Cesium.Cartesian3.fromDegrees(-76.0, 39.0, 50),
-      Cesium.Cartesian3.fromDegrees(-77.0369, 38.9072, 50)  // DC
-    ];
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: start,
+        zoom: 7,
+      });
 
-    // 3. ドライブ用変数
-    let index = 0;
-    let driving = false;
-    let speed = 20;
-    let driveInterval;
+      panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), {
+        position: start,
+        pov: { heading: 0, pitch: 0, zoom: 1 },
+        visible: true,
+      });
 
-    // 4. ドライブ関数
-    function driveRoute() {
-      if (index >= route.length - 1) return;
+      map.setStreetView(panorama);
+      marker = new google.maps.Marker({ map });
 
-      const start = route[index];
-      const end = route[index + 1];
-      const totalSteps = 100;
-      let step = 0;
-
-      driveInterval = setInterval(() => {
-        if (!driving) return;
-        step++;
-        if (step > totalSteps) {
-          index++;
-          if (index < route.length - 1) {
-            driveRoute();
-          } else {
-            clearInterval(driveInterval);
-          }
-          return;
+      const directionsService = new google.maps.DirectionsService();
+      directionsService.route({
+        origin: start,
+        destination: end,
+        travelMode: google.maps.TravelMode.DRIVING
+      }, async (result, status) => {
+        if (status === "OK") {
+          const path = result.routes[0].overview_path;
+          route = await filterStreetViewPoints(path);
+          drawRoute();
         }
-        const factor = step / totalSteps;
-        const interpolated = Cesium.Cartesian3.lerp(start, end, factor, new Cesium.Cartesian3());
-        viewer.camera.flyTo({
-          destination: interpolated,
-          duration: 0.1,
-          orientation: {
-            heading: viewer.camera.heading,
-            pitch: Cesium.Math.toRadians(-15),
-            roll: 0
-          }
-        });
-      }, 1000 / speed);
+      });
+
+      document.getElementById("startBtn").onclick = startDrive;
+      document.getElementById("stopBtn").onclick = stopDrive;
     }
 
-    // 5. コントロール設定
-    document.getElementById("startBtn").addEventListener("click", () => {
-      if (!driving) {
-        driving = true;
-        index = 0;
-        driveRoute();
+    async function filterStreetViewPoints(path) {
+      const step = 10;
+      const filtered = [];
+      for (let i = 0; i < path.length; i += step) {
+        const location = path[i];
+        const isAvailable = await hasStreetView(location);
+        if (isAvailable) filtered.push(location);
       }
-    });
+      return filtered;
+    }
 
-    document.getElementById("stopBtn").addEventListener("click", () => {
-      driving = false;
-      clearInterval(driveInterval);
-    });
+    function hasStreetView(latlng) {
+      return new Promise(resolve => {
+        const sv = new google.maps.StreetViewService();
+        sv.getPanorama({ location: latlng, radius: 50 }, (data, status) => {
+          resolve(status === 'OK');
+        });
+      });
+    }
 
-    document.getElementById("speedSlider").addEventListener("input", (e) => {
-      speed = parseInt(e.target.value);
-    });
+    function drawRoute() {
+      new google.maps.Polyline({
+        path: route,
+        map: map,
+        strokeColor: "#FF0000",
+        strokeOpacity: 1.0,
+        strokeWeight: 4,
+      });
+    }
 
-    // 初期視点
-    viewer.camera.flyTo({
-      destination: route[0],
-      duration: 2,
-      orientation: {
-        heading: 0,
-        pitch: Cesium.Math.toRadians(-20),
-        roll: 0
-      }
-    });
+    function startDrive() {
+      const speed = parseInt(document.getElementById("speedSlider").value);
+      if (!route.length) return;
+
+      if (intervalId) clearInterval(intervalId);
+
+      intervalId = setInterval(() => {
+        if (currentIndex >= route.length) {
+          clearInterval(intervalId);
+          currentIndex = 0;
+          return;
+        }
+
+        const location = route[currentIndex];
+        marker.setPosition(location);
+        map.panTo(location);
+        setStreetViewDirection(location, currentIndex);
+        currentIndex++;
+      }, speed);
+    }
+
+    function stopDrive() {
+      clearInterval(intervalId);
+    }
+
+    function setStreetViewDirection(location, index) {
+      if (index + 1 >= route.length) return;
+
+      const next = route[index + 1];
+      const heading = google.maps.geometry.spherical.computeHeading(location, next);
+
+      const sv = new google.maps.StreetViewService();
+      sv.getPanorama({ location: location, radius: 50 }, (data, status) => {
+        if (status === 'OK') {
+          panorama.setPano(data.location.pano);
+          panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+        } else {
+          console.warn("ストリートビューが見つかりません:", location);
+        }
+      });
+    }
+
+    window.initMap = initMap;
   </script>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>
