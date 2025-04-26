@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Street View Drive Simulation (Optimized)</title>
+    <title>Street View Drive Simulation (Final Version)</title>
     <style>
       html, body {
         height: 100%; margin: 0; display: flex; font-family: sans-serif;
@@ -125,8 +125,15 @@
         const next = route[index + 1];
         const heading = google.maps.geometry.spherical.computeHeading(location, next);
 
-        panorama.setPosition(location);
-        panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+        const sv = new google.maps.StreetViewService();
+        sv.getPanorama({ location: location, radius: 50 }, (data, status) => {
+          if (status === 'OK') {
+            panorama.setPano(data.location.pano);
+            panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+          } else {
+            console.warn("ストリートビューが見つかりません:", location);
+          }
+        });
       }
 
       window.initMap = initMap;
