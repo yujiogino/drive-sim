@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Street View Drive Simulation (Final Fixed Version)</title>
+  <title>Street View Drive Simulation (No Speed Control)</title>
   <style>
     html, body {
       height: 100%; margin: 0; display: flex; font-family: sans-serif;
@@ -23,7 +23,6 @@
   <div id="controls">
     <button id="startBtn">Start</button>
     <button id="stopBtn">Stop</button>
-    Speed: <input type="range" id="speedSlider" min="500" max="5000" value="2000">
   </div>
 
   <script>
@@ -40,7 +39,7 @@
 
       panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), {
         position: start,
-        pov: { heading: 0, pitch: 0, zoom: 1 },
+        pov: { heading: 0, pitch: 0 },
         visible: true,
       });
 
@@ -95,7 +94,7 @@
     }
 
     function startDrive() {
-      const speed = parseInt(document.getElementById("speedSlider").value);
+      const speed = 2000; // 固定速度 2000ms
       if (!route.length) return;
 
       if (intervalId) clearInterval(intervalId);
@@ -129,7 +128,7 @@
       sv.getPanorama({ location: location, radius: 50 }, (data, status) => {
         if (status === 'OK') {
           panorama.setPano(data.location.pano);
-          panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+          panorama.setPov({ heading: heading, pitch: 0 });
         } else {
           console.warn("ストリートビューが見つかりません:", location);
         }
