@@ -118,7 +118,13 @@
       new google.maps.StreetViewService().getPanorama({ location, radius: 50 }, (data, status) => {
         if (status === 'OK') {
           panorama.setPano(data.location.pano);
-          panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+          panorama.setPov({ 
+  heading: isNaN(heading) ? 0 : heading, 
+  pitch: 0, 
+  zoom: 1 
+});
+ 
+
         } else {
           console.warn("Street View not found at:", location);
         }
