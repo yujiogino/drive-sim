@@ -109,6 +109,48 @@
       }, speed);
     }
 
+    function moveToNextPoint() {
+    if (!isPlaying || currentIndex >= route.length - 1) return;
+
+     const point = route[currentIndex];
+     const nextPoint = route[currentIndex + 1];
+     const heading = google.maps.geometry.spherical.computeHeading(point, nextPoint);
+
+  // ストリートビューのある地点を探す
+  streetViewService.getPanorama(
+    {
+      location: point,
+      radius: 50 // 半径50m以内で探索
+    },
+    (data, status) => {
+      if (status === google.maps.StreetViewStatus.OK) {
+        streetView.setPano(data.location.pano);
+        streetView.setPov({ heading: heading, pitch: 0 });
+        streetView.setVisible(true);
+
+        streetViewMarker.setPosition(data.location.latLng);
+        map.panTo(data.location.latLng);
+      } else {
+        console.warn("ストリートビューが見つかりません:", point);
+        // ストリートビューが無ければマーカーのみ移動して続行
+        streetView.setVisible(false);
+        streetViewMarker.setPosition(point);
+        map.panTo(point);
+      }
+    }
+  );
+
+  currentIndex++;
+  if (isPlaying) {
+    setTimeout(moveToNextPoint, speed);
+  }
+}
+
+
+
+
+
+
     function stopDrive() {
       clearInterval(interval);
     }
