@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Street View Drive Simulation (No Speed Control)</title>
+  <title>Street View Drive Simulation</title>
   <style>
     html, body {
       height: 100%; margin: 0; display: flex; font-family: sans-serif;
@@ -23,26 +23,19 @@
   <div id="controls">
     <button id="startBtn">Start</button>
     <button id="stopBtn">Stop</button>
+    <button id="pauseBtn">Pause</button>
+    <button id="resumeBtn">Resume</button>
   </div>
 
   <script>
-    let map, panorama, marker, route = [], currentIndex = 0, intervalId = null;
+    let map, panorama, marker, route = [], currentIndex = 0, intervalId = null, paused = false;
 
     function initMap() {
-      const start = { lat: 40.7128, lng: -74.0060 }; // New York
-      const end = { lat: 25.7617, lng: -80.1918 };   // Miami
+      const start = { lat: 40.7128, lng: -74.0060 };
+      const end = { lat: 25.7617, lng: -80.1918 };
 
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: start,
-        zoom: 7,
-      });
-
-      panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), {
-        position: start,
-        pov: { heading: 0, pitch: 0 },
-        visible: true,
-      });
-
+      map = new google.maps.Map(document.getElementById("map"), { center: start, zoom: 7 });
+      panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), { position: start, pov: { heading: 0, pitch: 0 }, visible: true });
       map.setStreetView(panorama);
       marker = new google.maps.Marker({ map });
 
@@ -53,84 +46,80 @@
         travelMode: google.maps.TravelMode.DRIVING
       }, async (result, status) => {
         if (status === "OK") {
-          const path = result.routes[0].overview_path;
-          route = await filterStreetViewPoints(path);
+          route = await filterStreetViewPoints(result.routes[0].overview_path);
           drawRoute();
+        } else {
+          console.error("Failed to fetch route:", status);
+          alert("Error fetching route. Try again.");
         }
       });
 
       document.getElementById("startBtn").onclick = startDrive;
       document.getElementById("stopBtn").onclick = stopDrive;
+      document.getElementById("pauseBtn").onclick = pauseDrive;
+      document.getElementById("resumeBtn").onclick = resumeDrive;
     }
 
     async function filterStreetViewPoints(path) {
-      const step = 10;
       const filtered = [];
-      for (let i = 0; i < path.length; i += step) {
-        const location = path[i];
-        const isAvailable = await hasStreetView(location);
-        if (isAvailable) filtered.push(location);
+      for (const location of path) {
+        if (await hasStreetView(location)) filtered.push(location);
       }
       return filtered;
     }
 
     function hasStreetView(latlng) {
       return new Promise(resolve => {
-        const sv = new google.maps.StreetViewService();
-        sv.getPanorama({ location: latlng, radius: 50 }, (data, status) => {
-          resolve(status === 'OK');
-        });
+        new google.maps.StreetViewService().getPanorama({ location: latlng, radius: 50 }, (data, status) => resolve(status === 'OK'));
       });
     }
 
     function drawRoute() {
-      new google.maps.Polyline({
-        path: route,
-        map: map,
-        strokeColor: "#FF0000",
-        strokeOpacity: 1.0,
-        strokeWeight: 4,
-      });
+      new google.maps.Polyline({ path: route, map: map, strokeColor: "#FF0000", strokeOpacity: 1.0, strokeWeight: 4 });
     }
 
     function startDrive() {
-      const speed = 2000; // 固定速度 2000ms
-      if (!route.length) return;
-
-      if (intervalId) clearInterval(intervalId);
-
+      if (!route.length || intervalId) return;
+      paused = false;
       intervalId = setInterval(() => {
-        if (currentIndex >= route.length) {
-          clearInterval(intervalId);
-          currentIndex = 0;
-          return;
-        }
-
-        const location = route[currentIndex];
-        marker.setPosition(location);
-        map.panTo(location);
-        setStreetViewDirection(location, currentIndex);
+        if (currentIndex >= route.length) return stopDrive();
+        moveToLocation(route[currentIndex]);
         currentIndex++;
-      }, speed);
+      }, 2000);
+    }
+
+    function pauseDrive() {
+      paused = true;
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+
+    function resumeDrive() {
+      if (paused) startDrive();
     }
 
     function stopDrive() {
       clearInterval(intervalId);
+      intervalId = null;
+      currentIndex = 0;
+    }
+
+    function moveToLocation(location) {
+      marker.setPosition(location);
+      map.panTo(location);
+      setStreetViewDirection(location, currentIndex);
     }
 
     function setStreetViewDirection(location, index) {
       if (index + 1 >= route.length) return;
+      const heading = google.maps.geometry.spherical.computeHeading(location, route[index + 1]);
 
-      const next = route[index + 1];
-      const heading = google.maps.geometry.spherical.computeHeading(location, next);
-
-      const sv = new google.maps.StreetViewService();
-      sv.getPanorama({ location: location, radius: 50 }, (data, status) => {
+      new google.maps.StreetViewService().getPanorama({ location, radius: 50 }, (data, status) => {
         if (status === 'OK') {
           panorama.setPano(data.location.pano);
-          panorama.setPov({ heading: heading, pitch: 0 });
+          panorama.setPov({ heading, pitch: 0 });
         } else {
-          console.warn("ストリートビューが見つかりません:", location);
+          console.warn("Street View not found at:", location);
         }
       });
     }
