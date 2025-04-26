@@ -34,7 +34,7 @@
       panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), { position: start, pov: { heading: 0, pitch: 0 }, visible: true });
       map.setStreetView(panorama);
 
-      marker = new google.maps.AdvancedMarkerElement({
+      marker = new google.maps.marker.AdvancedMarkerElement({
         map,
         position: start,
         title: "Start Point"
@@ -126,7 +126,7 @@
     }
   </script>
 
- <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry,marker&map_ids=86d77486f5b76836&callback=initMap" async defer></script>
+ <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry,mapsjs&map_ids=86d77486f5b76836&callback=initMap" async defer></script>
  
 
 
