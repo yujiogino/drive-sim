@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="utf-8">
   <title>Street View Drive Simulation (Updated)</title>
@@ -23,22 +23,22 @@
     <button id="resumeBtn">Resume</button>
   </div>
 
-  <script type="module">
-    import { AdvancedMarkerElement } from "https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry";
-
+  <script>
     let map, panorama, marker, route = [], currentIndex = 0, intervalId = null, paused = false;
 
-    function initMap() {
+    window.initMap = function() {
       const start = { lat: 40.7128, lng: -74.0060 };
       const end = { lat: 25.7617, lng: -80.1918 };
 
       map = new google.maps.Map(document.getElementById("map"), { center: start, zoom: 7 });
-
       panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), { position: start, pov: { heading: 0, pitch: 0 }, visible: true });
-
       map.setStreetView(panorama);
 
-      marker = new AdvancedMarkerElement({ map, position: start, title: "Start Point" });
+      marker = new google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: start,
+        title: "Start Point"
+      });
 
       const directionsService = new google.maps.DirectionsService();
       directionsService.route({
@@ -59,7 +59,7 @@
       document.getElementById("stopBtn").onclick = stopDrive;
       document.getElementById("pauseBtn").onclick = pauseDrive;
       document.getElementById("resumeBtn").onclick = resumeDrive;
-    }
+    };
 
     async function filterStreetViewPoints(path) {
       const filtered = [];
@@ -124,10 +124,8 @@
         }
       });
     }
-
-    window.initMap = initMap;
   </script>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry&callback=initMap" loading="async" defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>
