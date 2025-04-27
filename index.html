@@ -118,38 +118,31 @@
       setStreetViewDirection(location, currentIndex);
     }
 
+    function setStreetViewDirection(location, index) {
+      if (index + 1 >= route.length) return;
 
-function setStreetViewDirection(location, index) {
-  if (index + 1 >= route.length) return;
+      const nextLocation = route[index + 1];
+      if (!nextLocation) {
+        console.warn("No next location for heading calculation.");
+        return;
+      }
 
-  const nextLocation = route[index + 1];
-  if (!nextLocation) {
-    console.warn("No next location for heading calculation.");
-    return;
-  }
+      const heading = google.maps.geometry.spherical.computeHeading(location, nextLocation) || 0;
 
-  const heading = google.maps.geometry.spherical.computeHeading(location, nextLocation);
-  
-  console.log("Heading value:", heading); // ここで正しく出力
+      console.log("Heading value:", heading);  // 正しい位置で出力
 
-  new google.maps.StreetViewService().getPanorama({ location, radius: 50 }, (data, status) => {
-    if (status === 'OK') {
-      panorama.setPano(data.location.pano);
-      panorama.setPov({ 
-        heading: isNaN(heading) ? 0 : heading, 
-        pitch: 0, 
-        zoom: 1 
+      new google.maps.StreetViewService().getPanorama({ location, radius: 50 }, (data, status) => {
+        if (status === 'OK') {
+          panorama.setPano(data.location.pano);
+          panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+        } else {
+          console.warn("Street View not found at:", location);
+        }
       });
-    } else {
-      console.warn("Street View not found at:", location);
     }
-  });
-}
-
-    
   </script>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry,marker&map_ids=293ae0d5bc07e4c6&callback=initMap" async defer></script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry,marker&map_ids=293ae0d5bc07e4c6&callback=initMap"></script>
 
 </body>
 </html>
