@@ -31,11 +31,18 @@
       const end = { lat: 25.7617, lng: -80.1918 };
 
       map = new google.maps.Map(document.getElementById("map"), { center: start, zoom: 7 });
-      panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), { position: start, pov: { heading: 0, pitch: 0 }, visible: true });
+
+      panorama = new google.maps.StreetViewPanorama(document.getElementById("pano"), { 
+        position: start, 
+        pov: { heading: 0, pitch: 0, zoom: 1 }, 
+        visible: true 
+      });
+
       map.setStreetView(panorama);
 
-      marker = new google.maps.marker.AdvancedMarkerElement({
-        map,
+      // `AdvancedMarkerElement` を `google.maps.Marker` に変更
+      marker = new google.maps.Marker({
+        map: map,
         position: start,
         title: "Start Point"
       });
@@ -106,7 +113,7 @@
     }
 
     function moveToLocation(location) {
-      marker.position = location;
+      marker.setPosition(location);
       map.panTo(location);
       setStreetViewDirection(location, currentIndex);
     }
@@ -115,33 +122,24 @@
       if (index + 1 >= route.length) return;
       const heading = google.maps.geometry.spherical.computeHeading(location, route[index + 1]);
 
+      console.log("Heading value:", heading);  // Debugging
+
       new google.maps.StreetViewService().getPanorama({ location, radius: 50 }, (data, status) => {
         if (status === 'OK') {
           panorama.setPano(data.location.pano);
           panorama.setPov({ 
-  heading: isNaN(heading) ? 0 : heading, 
-  pitch: 0, 
-  zoom: 1 
-
-
-});
- 
-
+            heading: isNaN(heading) ? 0 : heading, 
+            pitch: 0, 
+            zoom: 1 
+          });
         } else {
           console.warn("Street View not found at:", location);
         }
       });
     }
-
-console.log("Heading value:", heading);
-
-
-
   </script>
 
- <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry,marker&map_ids=86d77486f5b76836&callback=initMap" async defer></script>
- 
-
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry,marker&map_ids=86d77486f5b76836&callback=initMap" async defer></script>
 
 </body>
 </html>
