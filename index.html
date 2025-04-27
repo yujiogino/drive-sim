@@ -120,7 +120,14 @@
 
     function setStreetViewDirection(location, index) {
       if (index + 1 >= route.length) return;
-      const heading = google.maps.geometry.spherical.computeHeading(location, route[index + 1]);
+      
+if (index + 1 < route.length) {
+  const heading = google.maps.geometry.spherical.computeHeading(location, route[index + 1]) || 0;
+  console.log("Heading value:", heading); // デバッグ用
+  panorama.setPov({ heading, pitch: 0, zoom: 1 });
+} else {
+  console.warn("No next location for heading calculation.");
+}
 
       console.log("Heading value:", heading);  // Debugging
 
@@ -139,7 +146,7 @@
     }
   </script>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry,marker&map_ids=86d77486f5b76836&callback=initMap" async defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAW393MmX87bvvVLhV1OToI1HybHaefF24&libraries=geometry,marker&map_ids=293ae0d5bc07e4c6&callback=initMap" async defer></script>
 
 </body>
 </html>
